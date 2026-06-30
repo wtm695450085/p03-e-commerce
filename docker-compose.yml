@@ -1,0 +1,13 @@
+services:
+  prosport:
+    build: .
+    container_name: p03-ecommerce-store
+    restart: unless-stopped
+    ports:
+      - "8501:8000"
+    volumes:
+      - ./data:/app/data
+      - ./static:/app/static
+    environment:
+      DATA_DIR: /app/data
+      FORCE_RESEED: "1"

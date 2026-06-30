@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>ProSport — Dashboard Analityczny</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ── TOKENY ─────────────────────────────────────────────────── */
+:root {
+  --bg:       #0D1117;
+  --surface:  #161B22;
+  --surface2: #1C2128;
+  --border:   #30363D;
+  --ink:      #E6EDF3;
+  --ink2:     #8B949E;
+  --ink3:     #484F58;
+  --lime:     #A8E063;
+  --lime-dim: #6AAF20;
+  --red:      #FF6B6B;
+  --blue:     #58A6FF;
+  --orange:   #FFA657;
+  --purple:   #D2A8FF;
+  --teal:     #39D353;
+
+  --ca: #A8E063;   /* klaster A — limonka   */
+  --cb: #58A6FF;   /* klaster B — niebieski */
+  --cc: #FFA657;   /* klaster C — pomarańcz */
+  --cd: #D2A8FF;   /* klaster D — fiolet    */
+  --ce: #FF6B6B;   /* klaster E — czerwony  */
+
+  --mono: "IBM Plex Mono", monospace;
+  --sans: "Inter", system-ui, sans-serif;
+  --radius: 10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--ink);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── NAV ────────────────────────────────────────────────────── */
+.nav{
+  position:sticky;top:0;z-index:50;
+  background:rgba(13,17,23,.92);
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(12px);
+  padding:0 28px;
+  display:flex;align-items:center;justify-content:space-between;
+  height:56px;
+}
+.nav-brand{
+  font-family:var(--mono);font-weight:700;font-size:1rem;
+  color:var(--lime);letter-spacing:-.01em;
+  display:flex;align-items:center;gap:10px;
+}
+.nav-brand span{color:var(--ink2);font-weight:400}
+.nav-link{
+  font-size:.84rem;font-weight:500;color:var(--ink2);
+  text-decoration:none;padding:6px 12px;border-radius:6px;
+  transition:.15s;
+}
+.nav-link:hover{background:var(--surface2);color:var(--ink)}
+.nav-right{display:flex;align-items:center;gap:8px}
+.badge-run{
+  font-family:var(--mono);font-size:.72rem;
+  background:rgba(168,224,99,.12);color:var(--lime);
+  border:1px solid rgba(168,224,99,.3);
+  padding:4px 10px;border-radius:20px;cursor:pointer;
+  transition:.15s;
+}
+.badge-run:hover{background:rgba(168,224,99,.2)}
+#run-status{font-family:var(--mono);font-size:.72rem;color:var(--ink3)}
+
+/* ── LAYOUT ─────────────────────────────────────────────────── */
+.wrap{max-width:1380px;margin:0 auto;padding:0 28px}
+.page{padding:32px 0 80px}
+
+/* sekcja */
+.section{margin-bottom:40px}
+.section-label{
+  font-family:var(--mono);font-size:.7rem;font-weight:600;
+  letter-spacing:.12em;text-transform:uppercase;
+  color:var(--lime);margin-bottom:16px;
+  display:flex;align-items:center;gap:8px;
+}
+.section-label::after{content:"";flex:1;height:1px;background:var(--border)}
+
+/* ── KPI ROW ─────────────────────────────────────────────────── */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:40px}
+.kpi{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:18px 20px;
+  display:flex;flex-direction:column;gap:4px;
+}
+.kpi-val{
+  font-family:var(--mono);font-size:1.8rem;font-weight:700;
+  color:var(--lime);letter-spacing:-.02em;line-height:1;
+}
+.kpi-label{font-size:.78rem;color:var(--ink2);margin-top:4px}
+.kpi-sub{font-family:var(--mono);font-size:.68rem;color:var(--ink3)}
+
+/* ── GRID 2 kolumny ─────────────────────────────────────────── */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+
+/* ── KARTA wykresu ──────────────────────────────────────────── */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:22px;
+  display:flex;flex-direction:column;gap:14px;
+}
+.card-title{
+  font-family:var(--mono);font-size:.78rem;font-weight:600;
+  color:var(--ink);letter-spacing:.02em;
+}
+.card-sub{font-size:.75rem;color:var(--ink2);margin-top:-10px}
+.chart-wrap{position:relative;width:100%}
+.chart-wrap canvas{display:block;width:100%!important}
+
+/* ── KLASTRY — legendy ──────────────────────────────────────── */
+.cluster-legend{display:flex;flex-direction:column;gap:8px}
+.cl-row{
+  display:grid;grid-template-columns:22px 16px 1fr auto;
+  align-items:center;gap:10px;
+  padding:10px 12px;border-radius:8px;
+  background:var(--surface2);border:1px solid var(--border);
+}
+.cl-letter{
+  font-family:var(--mono);font-weight:700;font-size:.95rem;
+}
+.cl-dot{width:10px;height:10px;border-radius:50%}
+.cl-name{font-size:.83rem;color:var(--ink2)}
+.cl-stats{font-family:var(--mono);font-size:.75rem;color:var(--ink3);text-align:right}
+
+/* ── HEATMAPA wiek×klaster ──────────────────────────────────── */
+.heatmap{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.78rem}
+.heatmap th{
+  padding:8px 10px;text-align:center;
+  color:var(--ink2);font-weight:600;font-size:.7rem;letter-spacing:.06em;
+  border-bottom:1px solid var(--border);
+}
+.heatmap th:first-child{text-align:left}
+.heatmap td{
+  padding:9px 10px;text-align:center;
+  border-bottom:1px solid rgba(48,54,61,.5);
+  font-weight:500;transition:.2s;
+}
+.heatmap td:first-child{text-align:left;color:var(--ink2);font-size:.75rem}
+.hm-cell{border-radius:5px;display:inline-block;min-width:42px;padding:4px 8px}
+
+/* ── PARY PRODUKTOWE ─────────────────────────────────────────── */
+.pairs-list{display:flex;flex-direction:column;gap:7px}
+.pair-row{display:flex;align-items:center;gap:10px}
+.pair-cats{
+  display:flex;align-items:center;gap:6px;flex:1;min-width:0;
+  font-size:.82rem;
+}
+.pair-tag{
+  background:var(--surface2);border:1px solid var(--border);
+  padding:3px 9px;border-radius:20px;font-size:.75rem;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:120px;
+}
+.pair-arrow{color:var(--lime);font-size:.9rem;flex-shrink:0}
+.pair-bar-wrap{width:120px;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;flex-shrink:0}
+.pair-bar{height:100%;background:var(--lime);border-radius:4px;opacity:.7}
+.pair-count{
+  font-family:var(--mono);font-size:.72rem;
+  color:var(--ink3);width:40px;text-align:right;flex-shrink:0;
+}
+
+/* ── RFM details ─────────────────────────────────────────────── */
+.rfm-seg-list{display:flex;flex-direction:column;gap:6px}
+.rfm-seg-row{display:flex;align-items:center;gap:10px}
+.rfm-seg-name{font-size:.82rem;color:var(--ink2);flex:1}
+.rfm-bar-wrap{width:160px;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
+.rfm-bar{height:100%;border-radius:4px}
+.rfm-count{font-family:var(--mono);font-size:.72rem;color:var(--ink3);width:32px;text-align:right}
+
+/* ── ZASOBNOŚĆ ──────────────────────────────────────────────── */
+.aff-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.aff-card{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:14px;
+}
+.aff-name{font-size:.75rem;color:var(--ink2);text-transform:capitalize;margin-bottom:6px}
+.aff-val{font-family:var(--mono);font-weight:700;font-size:1.1rem;color:var(--ink)}
+.aff-sub{font-family:var(--mono);font-size:.68rem;color:var(--ink3);margin-top:3px}
+
+/* ── LOADING / ERROR ─────────────────────────────────────────── */
+.loading{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:60vh;gap:16px;
+}
+.spinner{
+  width:36px;height:36px;border:3px solid var(--border);
+  border-top-color:var(--lime);border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-family:var(--mono);font-size:.85rem;color:var(--ink2)}
+.error-box{
+  background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.3);
+  border-radius:var(--radius);padding:22px 24px;
+  font-family:var(--mono);font-size:.85rem;color:var(--red);
+  margin:40px 0;
+}
+.error-box strong{display:block;margin-bottom:8px;font-size:.9rem}
+
+/* ── RESPONSIVE ──────────────────────────────────────────────── */
+@media(max-width:900px){
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .grid2,.grid3{grid-template-columns:1fr}
+  .pair-bar-wrap{width:80px}
+}
+@media(max-width:560px){
+  .kpi-row{grid-template-columns:1fr 1fr}
+  .wrap{padding:0 16px}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+      <path d="M3 18 L8 8 L12 14 L16 8 L21 18 Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+    </svg>
+    ProSport <span>/ analytics</span>
+  </div>
+  <div class="nav-right">
+    <span id="run-status"></span>
+    <button class="badge-run" id="btn-recluster" title="Uruchom ponownie klasteryzację">⟳ Recluster</button>
+    <a href="/" class="nav-link">← Sklep</a>
+  </div>
+</nav>
+
+<div id="loading" class="wrap loading">
+  <div class="spinner"></div>
+  <div class="loading-text">Ładowanie danych analitycznych…</div>
+</div>
+
+<div id="error-wrap" class="wrap" hidden>
+  <div class="error-box">
+    <strong>Brak danych klasteryzacji</strong>
+    <span id="error-msg"></span><br/><br/>
+    Uruchom: <code>python -m app.cluster_customers</code> na serwerze,<br/>
+    lub kliknij przycisk <strong>⟳ Recluster</strong> powyżej.
+  </div>
+</div>
+
+<div id="main" class="wrap page" hidden>
+
+  <!-- KPI -->
+  <div class="kpi-row" id="kpi-row"></div>
+
+  <!-- KLASTRY K-Means -->
+  <div class="section">
+    <div class="section-label">Klasteryzacja K-Means (Sparse)</div>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Rozkład klastrów — liczba klientów</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="ch-clusters"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Klastry — średnie wydatki (PLN)</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="ch-cluster-spent"></canvas></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <div class="card-title">Opisy klastrów</div>
+      <div class="cluster-legend" id="cluster-legend"></div>
+    </div>
+  </div>
+
+  <!-- PCA SCATTER -->
+  <div class="section">
+    <div class="section-label">Mapa klientów — PCA (PC1 × PC2)</div>
+    <div class="card">
+      <div class="card-title">Scatter PCA — próbka 300 klientów, kolor = klaster KM</div>
+      <div class="card-sub">Oś X: główny komponent (zachowania zakupowe), Oś Y: drugi komponent (demografia/lojalność)</div>
+      <div class="chart-wrap" style="height:360px"><canvas id="ch-pca"></canvas></div>
+    </div>
+  </div>
+
+  <!-- RFM -->
+  <div class="section">
+    <div class="section-label">Analiza RFM</div>
+    <div class="grid3">
+      <div class="card">
+        <div class="card-title">Recency — R (1=dawno, 5=ostatnio)</div>
+        <div class="chart-wrap" style="height:180px"><canvas id="ch-rfm-r"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Frequency — F (1=rzadko, 5=często)</div>
+        <div class="chart-wrap" style="height:180px"><canvas id="ch-rfm-f"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Monetary — M (1=mało, 5=dużo)</div>
+        <div class="chart-wrap" style="height:180px"><canvas id="ch-rfm-m"></canvas></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <div class="card-title">Segmenty RFM — rozkład populacji</div>
+      <div class="rfm-seg-list" id="rfm-seg-list"></div>
+    </div>
+  </div>
+
+  <!-- PARY PRODUKTÓW -->
+  <div class="section">
+    <div class="section-label">Market Basket — pary produktów</div>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Top 10 par kupowanych razem</div>
+        <div class="pairs-list" id="pairs-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Top 10 par — wykres poziomy</div>
+        <div class="chart-wrap" style="height:300px"><canvas id="ch-pairs"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEMOGRAFIA -->
+  <div class="section">
+    <div class="section-label">Demografika × Klaster</div>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Heatmapa: Wiek × Klaster</div>
+        <div class="card-sub">Liczba klientów w każdej komórce</div>
+        <table class="heatmap" id="heatmap-age"></table>
+      </div>
+      <div class="card">
+        <div class="card-title">Zasobność portfela — śr. wydatki</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="ch-affluence"></canvas></div>
+        <div class="aff-grid" id="aff-cards"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+(() => {
+'use strict';
+
+const API = '/api/dashboard';
+const CLUSTER_COLORS = { A:'#A8E063', B:'#58A6FF', C:'#FFA657', D:'#D2A8FF', E:'#FF6B6B' };
+const CLUSTER_COLORS_DIM = { A:'rgba(168,224,99,.25)', B:'rgba(88,166,255,.25)',
+  C:'rgba(255,166,87,.25)', D:'rgba(210,168,255,.25)', E:'rgba(255,107,107,.25)' };
+const fmt = new Intl.NumberFormat('pl-PL', { style:'currency', currency:'PLN', maximumFractionDigits:0 });
+const fmtN = n => new Intl.NumberFormat('pl-PL').format(n);
+
+const RFM_SEG_COLORS = {
+  'Champions':'#A8E063','Lojalny klient':'#58A6FF','Potencjalny Champion':'#39D353',
+  'Nowy VIP':'#FFA657','Zagrożony wysoki':'#D2A8FF','Potrzebuje uwagi':'#8B949E',
+  'Śpiący klient':'#484F58','Nie może stracić':'#FF8C00','Odejście VIP':'#FF6B6B',
+  'Odchodzący':'#CC3333','Stracony':'#3D1A1A','Okazjonalny':'#30363D',
+};
+
+Chart.defaults.color = '#8B949E';
+Chart.defaults.font.family = '"IBM Plex Mono", monospace';
+Chart.defaults.font.size = 11;
+
+const gridOpts = {
+  color: 'rgba(48,54,61,.6)',
+  borderColor: 'rgba(48,54,61,.6)',
+};
+
+async function init() {
+  try {
+    const res = await fetch(API);
+    const data = await res.json();
+    document.getElementById('loading').hidden = true;
+
+    if (data.error) {
+      document.getElementById('error-msg').textContent = ' ' + data.error;
+      document.getElementById('error-wrap').hidden = false;
+      return;
+    }
+
+    document.getElementById('main').hidden = false;
+    renderKPI(data.meta);
+    renderClusters(data.cluster_dist);
+    renderPCA(data.pca_scatter);
+    renderRFM(data.rfm_axes, data.rfm_dist);
+    renderPairs(data.top_pairs);
+    renderDemography(data.age_heatmap, data.affluence);
+
+    document.getElementById('run-status').textContent =
+      'zaktualizowano: ' + new Date(data.meta.clustered_at).toLocaleString('pl-PL').slice(0,-3);
+
+  } catch(e) {
+    document.getElementById('loading').hidden = true;
+    document.getElementById('error-msg').textContent = ' Nie udało się połączyć z API: ' + e.message;
+    document.getElementById('error-wrap').hidden = false;
+  }
+}
+
+// ── KPI ──────────────────────────────────────────────────────────────────
+function renderKPI(meta) {
+  const items = [
+    { val: fmtN(meta.total_customers), label: 'Klientów w archiwum', sub: 'zaseedowanych' },
+    { val: fmt.format(meta.total_revenue), label: 'Łączny obrót', sub: 'suma total_spent' },
+    { val: meta.n_clusters, label: 'Klastrów K-Means', sub: 'Sparse clustering' },
+    { val: fmt.format(Math.round(meta.total_revenue / meta.total_customers)),
+      label: 'Śr. wartość klienta', sub: 'total / klientów' },
+  ];
+  document.getElementById('kpi-row').innerHTML = items.map(k => `
+    <div class="kpi">
+      <div class="kpi-val">${k.val}</div>
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>`).join('');
+}
+
+// ── KLASTRY ───────────────────────────────────────────────────────────────
+function renderClusters(dist) {
+  const letters = dist.map(d => d.cluster);
+  const counts  = dist.map(d => d.count);
+  const spents  = dist.map(d => d.avg_spent);
+  const colors  = letters.map(l => CLUSTER_COLORS[l]);
+
+  new Chart(document.getElementById('ch-clusters'), {
+    type: 'doughnut',
+    data: {
+      labels: letters.map(l => `Klaster ${l}`),
+      datasets: [{ data: counts, backgroundColor: colors,
+        borderColor: '#0D1117', borderWidth: 3, hoverOffset: 6 }],
+    },
+    options: {
+      cutout: '65%',
+      plugins: {
+        legend: { position: 'right', labels: { padding: 16, boxWidth: 12, boxHeight: 12 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed} klientów (${Math.round(ctx.parsed/5)}%)` } },
+      },
+    },
+  });
+
+  new Chart(document.getElementById('ch-cluster-spent'), {
+    type: 'bar',
+    data: {
+      labels: letters.map(l => `Klaster ${l}`),
+      datasets: [{ data: spents, backgroundColor: colors, borderRadius: 6 }],
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + fmt.format(ctx.parsed.x) } } },
+      scales: {
+        x: { grid: gridOpts, ticks: { callback: v => fmt.format(v) } },
+        y: { grid: { display: false } },
+      },
+    },
+  });
+
+  // legenda opisowa
+  document.getElementById('cluster-legend').innerHTML = dist.map(d => `
+    <div class="cl-row">
+      <span class="cl-letter" style="color:${CLUSTER_COLORS[d.cluster]}">Kl.${d.cluster}</span>
+      <span class="cl-dot" style="background:${CLUSTER_COLORS[d.cluster]}"></span>
+      <span class="cl-name">${d.description}</span>
+      <span class="cl-stats">${d.count} klientów · śr. ${fmt.format(d.avg_spent)}</span>
+    </div>`).join('');
+}
+
+// ── PCA SCATTER ───────────────────────────────────────────────────────────
+function renderPCA(scatter) {
+  const byCluster = {};
+  for (const p of scatter) {
+    if (!byCluster[p.cluster]) byCluster[p.cluster] = [];
+    byCluster[p.cluster].push({ x: p.x, y: p.y, name: p.name, rfm: p.rfm_seg, spent: p.spent });
+  }
+  const datasets = Object.entries(byCluster).sort().map(([cl, pts]) => ({
+    label: `Klaster ${cl}`,
+    data: pts,
+    backgroundColor: CLUSTER_COLORS_DIM[cl],
+    borderColor: CLUSTER_COLORS[cl],
+    borderWidth: 1.2,
+    pointRadius: 5,
+    pointHoverRadius: 8,
+  }));
+
+  new Chart(document.getElementById('ch-pca'), {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 12, padding: 16 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const d = ctx.raw;
+              return [`${d.name}`, `RFM: ${d.rfm}`, `Wydane: ${fmt.format(d.spent)}`];
+            },
+          },
+        },
+      },
+      scales: {
+        x: { grid: gridOpts, title: { display: true, text: 'PC1 — aktywność zakupowa', color: '#8B949E' } },
+        y: { grid: gridOpts, title: { display: true, text: 'PC2 — demografia/lojalność', color: '#8B949E' } },
+      },
+    },
+  });
+}
+
+// ── RFM ───────────────────────────────────────────────────────────────────
+function renderRFM(axes, rfmDist) {
+  ['r','f','m'].forEach(axis => {
+    const d = axes[axis];
+    const scores = d.map(x => x.score);
+    const counts = d.map(x => x.count);
+    const axisColors = ['#FF6B6B','#FFA657','#FFA657','#58A6FF','#A8E063'];
+    new Chart(document.getElementById(`ch-rfm-${axis}`), {
+      type: 'bar',
+      data: {
+        labels: scores.map(s => `${s}/5`),
+        datasets: [{ data: counts, backgroundColor: axisColors, borderRadius: 5 }],
+      },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false } },
+          y: { grid: gridOpts, beginAtZero: true },
+        },
+      },
+    });
+  });
+
+  // segmenty RFM — lista z paskami
+  const maxCnt = Math.max(...rfmDist.map(s => s.count));
+  document.getElementById('rfm-seg-list').innerHTML = rfmDist.map(s => {
+    const color = RFM_SEG_COLORS[s.segment] || '#484F58';
+    const pct   = Math.round(s.count / maxCnt * 100);
+    return `
+      <div class="rfm-seg-row">
+        <span class="rfm-seg-name">${s.segment}</span>
+        <div class="rfm-bar-wrap">
+          <div class="rfm-bar" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <span class="rfm-count">${s.count}</span>
+      </div>`;
+  }).join('');
+}
+
+// ── PARY PRODUKTOWE ───────────────────────────────────────────────────────
+function renderPairs(pairs) {
+  const top10 = pairs.slice(0, 10);
+  const maxCnt = Math.max(...top10.map(p => p.count));
+
+  document.getElementById('pairs-list').innerHTML = top10.map(p => `
+    <div class="pair-row">
+      <div class="pair-cats">
+        <span class="pair-tag" title="${p.a}">${p.a}</span>
+        <span class="pair-arrow">⇄</span>
+        <span class="pair-tag" title="${p.b}">${p.b}</span>
+      </div>
+      <div class="pair-bar-wrap">
+        <div class="pair-bar" style="width:${Math.round(p.count/maxCnt*100)}%"></div>
+      </div>
+      <span class="pair-count">${p.count}×</span>
+    </div>`).join('');
+
+  new Chart(document.getElementById('ch-pairs'), {
+    type: 'bar',
+    data: {
+      labels: top10.map(p => `${p.a} + ${p.b}`),
+      datasets: [{
+        data: top10.map(p => p.count),
+        backgroundColor: 'rgba(168,224,99,.4)',
+        borderColor: '#A8E063',
+        borderWidth: 1.5,
+        borderRadius: 5,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: gridOpts, beginAtZero: true },
+        y: { grid: { display: false }, ticks: { font: { size: 10 } } },
+      },
+    },
+  });
+}
+
+// ── DEMOGRAFIA ────────────────────────────────────────────────────────────
+function renderDemography(heatmap, affluence) {
+  // heatmapa wiek × klaster
+  const allVals = heatmap.flatMap(r => ['A','B','C','D','E'].map(l => r[l] || 0));
+  const maxVal  = Math.max(...allVals);
+
+  const table = document.getElementById('heatmap-age');
+  table.innerHTML = `
+    <thead><tr>
+      <th>Wiek</th>
+      ${['A','B','C','D','E'].map(l =>
+        `<th style="color:${CLUSTER_COLORS[l]}">Kl. ${l}</th>`).join('')}
+    </tr></thead>
+    <tbody>${heatmap.map(row => `
+      <tr>
+        <td>${row.age_group}</td>
+        ${['A','B','C','D','E'].map(l => {
+          const v = row[l] || 0;
+          const intensity = maxVal > 0 ? Math.round(v / maxVal * 100) : 0;
+          const alpha = (0.08 + intensity / 100 * 0.65).toFixed(2);
+          const textColor = intensity > 55 ? '#fff' : CLUSTER_COLORS[l];
+          return `<td><span class="hm-cell" style="background:rgba(${hexToRgb(CLUSTER_COLORS[l])},${alpha});color:${textColor}">${v}</span></td>`;
+        }).join('')}
+      </tr>`).join('')}
+    </tbody>`;
+
+  // wykres zasobności
+  const affOrder = ['budżetowy','średni','zamożny','premium'];
+  const affSorted = affOrder.map(a => affluence.find(x => x.affluence === a)).filter(Boolean);
+  const affColors = ['#484F58','#8B949E','#58A6FF','#A8E063'];
+
+  new Chart(document.getElementById('ch-affluence'), {
+    type: 'bar',
+    data: {
+      labels: affSorted.map(a => a.affluence),
+      datasets: [{
+        label: 'Śr. wydatki',
+        data: affSorted.map(a => a.avg_spent),
+        backgroundColor: affColors,
+        borderRadius: 6,
+      }],
+    },
+    options: {
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + fmt.format(ctx.parsed.y) } },
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { grid: gridOpts, ticks: { callback: v => fmt.format(v) } },
+      },
+    },
+  });
+
+  // karty zasobności
+  document.getElementById('aff-cards').innerHTML = affSorted.map((a, i) => `
+    <div class="aff-card">
+      <div class="aff-name" style="color:${affColors[i]}">${a.affluence}</div>
+      <div class="aff-val">${fmt.format(a.avg_spent)}</div>
+      <div class="aff-sub">${a.count} klientów · max ${fmt.format(a.max_spent)}</div>
+    </div>`).join('');
+}
+
+// ── RECLUSTER ─────────────────────────────────────────────────────────────
+document.getElementById('btn-recluster').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-recluster');
+  const status = document.getElementById('run-status');
+  btn.textContent = '⟳ Recluster…';
+  btn.disabled = true;
+  status.textContent = 'uruchamianie…';
+  try {
+    const res = await fetch('/api/recluster', { method: 'POST' });
+    const d = await res.json();
+    if (d.ok) {
+      status.textContent = '✓ gotowe — odświeżam…';
+      setTimeout(() => location.reload(), 800);
+    } else {
+      status.textContent = d.error || 'błąd — spróbuj ręcznie';
+    }
+  } catch(e) {
+    status.textContent = 'błąd sieci';
+  } finally {
+    btn.textContent = '⟳ Recluster';
+    btn.disabled = false;
+  }
+});
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `${r},${g},${b}`;
+}
+
+init();
+})();
+</script>
+</body>
+</html>
