@@ -9,3 +9,4 @@ venv/
 data/
 .cache/
 .DS_Store
+static/images/
