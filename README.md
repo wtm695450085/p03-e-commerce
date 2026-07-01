@@ -1,5 +1,11 @@
 # ProSport — sklep sportowy (demo)
 
+http://62.72.20.95:8501/
+
+http://62.72.20.95:8501/dashboard
+
+
+
 Sklep sportowy w formacie HTML z własną bazą produktów, koszykiem i symulowanym
 składaniem zamówień. Backend: **FastAPI + SQLite** (gotowy pod PostgreSQL),
 frontend: **HTML / CSS / JS**. Całość uruchamiana w **kontenerze Docker**,
