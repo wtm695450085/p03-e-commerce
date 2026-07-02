@@ -4,7 +4,7 @@ http://62.72.20.95:8501/
 
 http://62.72.20.95:8501/dashboard
 
-Test AA
+
 
 Sklep sportowy w formacie HTML z własną bazą produktów, koszykiem i symulowanym
 składaniem zamówień. Backend: **FastAPI + SQLite** (gotowy pod PostgreSQL),
