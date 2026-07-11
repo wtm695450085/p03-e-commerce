@@ -10,4 +10,4 @@ services:
       - ./static:/app/static
     environment:
       DATA_DIR: /app/data
-      FORCE_RESEED: "1"
+      FORCE_RESEED: "0"

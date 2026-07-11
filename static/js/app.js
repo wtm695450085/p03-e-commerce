@@ -346,7 +346,10 @@
     try {
       const res = await fetchJSON(`${API}/api/orders`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: state.cart.map((i) => ({ product_id: i.id, quantity: i.quantity })) }),
+        body: JSON.stringify({
+          customer_id: state.identity ? state.identity.id : null,
+          items: state.cart.map((i) => ({ product_id: i.id, quantity: i.quantity })),
+        }),
       });
       state.cart = []; saveCart(); renderCart(); closeCart();
       toast(`✓ Zamówienie #${res.order_id} złożone (symulacja) — ${fmt.format(res.total)}`, 3200);
@@ -567,6 +570,7 @@
       const pBtn = $("#profile-body").querySelector("[data-pick-profile]");
       if (pBtn && +pBtn.dataset.pickProfile === id) { pBtn.textContent = "✓ Wybrany"; pBtn.classList.add("active"); }
       toast(`Wcielasz się w: ${c.full_name}`);
+      promoDismissedForId = null;
       loadPromoAd();
     } catch (e) { toast("Nie udało się wybrać klienta."); }
   }
@@ -584,7 +588,8 @@
   // =====================================================================
   // SPERSONALIZOWANA REKLAMA (pływająca)
   // =====================================================================
-  let promoDismissed = false;
+  let promoDismissedForId = null;
+  let promoRequestSeq = 0;
 
   function hidePromoAd() {
     const el = $("#promo-ad");
@@ -592,57 +597,86 @@
   }
 
   async function loadPromoAd() {
-    if (!state.identity || promoDismissed) return;
+    if (!state.identity) { hidePromoAd(); return; }
+    const customerId = state.identity.id;
+    if (promoDismissedForId === customerId) return;
+    const requestSeq = ++promoRequestSeq;
+    hidePromoAd();
     try {
-      const offer = await fetchJSON(`${API}/api/customers/${state.identity.id}/offer`);
+      const offer = await fetchJSON(`${API}/api/customers/${customerId}/offer`);
+      if (requestSeq !== promoRequestSeq || !state.identity || state.identity.id !== customerId) return;
       if (!offer.items || !offer.items.length) { hidePromoAd(); return; }
-      renderPromoAd(offer);
-    } catch (e) { hidePromoAd(); }
+      renderPromoAd(offer, customerId);
+    } catch (e) {
+      if (requestSeq === promoRequestSeq) hidePromoAd();
+      console.error("Nie udało się wczytać promocji indywidualnej", e);
+    }
   }
 
-  const PROMO_SLOGANS = [
-    "Wyprzedaż tylko dla Ciebie!",
-    "Indywidualna oferta — tylko dziś!",
-    "Specjalne ceny wybrane dla Ciebie",
-    "Twoja prywatna promocja",
+  const PERSONAL_ADS = [
+    { icon:"🏋️", title:"Karnet do siłowni", text:"Miesiąc treningów i konsultacja trenerska", colors:["#101820","#E8590C"] },
+    { icon:"🏊", title:"Karnet na pływalnię", text:"Swobodne wejścia i trening techniki pływania", colors:["#073B4C","#118AB2"] },
+    { icon:"🚴", title:"Serwis i sklep rowerowy", text:"Przegląd roweru oraz akcesoria na nowy sezon", colors:["#183A1D","#0CA678"] },
+    { icon:"🏕️", title:"Weekend survivalowy", text:"Przygoda w terenie z instruktorem i ekwipunkiem", colors:["#302B1F","#8A6D3B"] },
+    { icon:"🧗", title:"Ścianka wspinaczkowa", text:"Wejście, sprzęt i pierwsza lekcja wspinania", colors:["#352F44","#7048E8"] },
+    { icon:"🧘", title:"Studio jogi", text:"Pakiet zajęć poprawiających mobilność i regenerację", colors:["#40354A","#B36BCE"] },
+    { icon:"🥊", title:"Klub sportów walki", text:"Trening wprowadzający z opieką instruktora", colors:["#241313","#D9485F"] },
+    { icon:"🎾", title:"Korty tenisowe", text:"Rezerwacja kortu i trening z trenerem", colors:["#204020","#74B816"] },
+    { icon:"⛷️", title:"Aktywny wyjazd w góry", text:"Sportowy weekend z trasami i opieką przewodnika", colors:["#19324A","#4DABF7"] },
+    { icon:"🏃", title:"Klub biegowy", text:"Plan treningowy i wspólne treningi biegowe", colors:["#312019","#FF6B35"] },
+    { icon:"🚣", title:"Spływ kajakowy", text:"Całodniowa wyprawa z transportem i sprzętem", colors:["#123047","#168AAD"] },
+    { icon:"🤸", title:"Trening personalny", text:"Indywidualny plan dopasowany do Twojego celu", colors:["#20232A","#FF4D2E"] },
+    { icon:"🛼", title:"Park rolkowy", text:"Zajęcia techniczne i bezpieczna jazda z instruktorem", colors:["#392A48","#9C36B5"] },
+    { icon:"🏇", title:"Jazda konna", text:"Lekcja w siodle i spokojna wyprawa terenowa", colors:["#3D2C1E","#B7791F"] },
+    { icon:"🏄", title:"Szkoła sportów wodnych", text:"Windsurfing lub SUP z pełnym wyposażeniem", colors:["#073642","#00A8CC"] },
+    { icon:"⚽", title:"Akademia piłkarska", text:"Trening techniczny i analiza umiejętności", colors:["#173B2A","#20A464"] },
+    { icon:"🏸", title:"Klub badmintona", text:"Kort, rakiety i trening dla każdego poziomu", colors:["#253246","#5470C6"] },
+    { icon:"⛸️", title:"Lodowisko i nauka jazdy", text:"Wejście z wypożyczeniem łyżew i instruktorem", colors:["#17324D","#69DBE7"] },
+    { icon:"🌲", title:"Park linowy", text:"Trasa pełna przeszkód i aktywności na wysokości", colors:["#203621","#5C940D"] },
+    { icon:"💆", title:"Regeneracja sportowa", text:"Masaż sportowy i sesja odnowy po treningu", colors:["#263238","#26A69A"] },
   ];
 
-  function renderPromoAd(offer) {
+  function renderPromoAd(offer, customerId) {
     const el = $("#promo-ad");
-    const slogan = PROMO_SLOGANS[(state.identity.id) % PROMO_SLOGANS.length];
-    const maxDisc = Math.max(...offer.items.map((i) => i.discount));
+    const ad = PERSONAL_ADS[customerId % PERSONAL_ADS.length];
+    const firstName = offer.first_name || "Mamy dla Ciebie ofertę";
     el.innerHTML = `
       <button class="promo-close" id="promo-close" aria-label="Zamknij">✕</button>
-      <div class="promo-hero">
-        <span class="promo-hero-photo">
-          <img src="/images/hero/wojciech-hero.png" alt="ProSport" />
-        </span>
-        <div class="promo-hero-txt">
-          <span class="promo-eyebrow">−${maxDisc}% · Oferta indywidualna</span>
-          <span class="promo-slogan">${esc(slogan)}</span>
+      <div class="promo-layout">
+        <div class="promo-activity" style="--ad-from:${ad.colors[0]};--ad-to:${ad.colors[1]}">
+          <span class="promo-ad-icon" aria-hidden="true">${ad.icon}</span>
+          <div class="promo-hero-txt">
+            <span class="promo-eyebrow">Oferta indywidualna</span>
+            <span class="promo-slogan">${esc(firstName)}, mamy dla Ciebie −10%</span>
+            <span class="promo-activity-title">${esc(ad.title)}</span>
+            <span class="promo-service">${esc(ad.text)}</span>
+          </div>
         </div>
-      </div>
-      <div class="promo-greet">Cześć ${esc(offer.first_name || "")}! Wybraliśmy je specjalnie dla Ciebie:</div>
-      <div class="promo-items">
-        ${offer.items.map((it) => `
-          <div class="promo-item" data-promo="${it.product_id}">
-            <div class="promo-img"><img src="${it.image}" alt="${esc(it.name)}"/>
-              <span class="promo-badge">−${it.discount}%</span>
-            </div>
-            <div class="promo-info">
-              <div class="promo-name">${esc(it.name.split(" – ")[0])}</div>
-              <div class="promo-prices">
-                <span class="promo-old">${fmt.format(it.price)}</span>
-                <span class="promo-new">${fmt.format(it.new_price)}</span>
+        <div class="promo-products-box">
+          <div class="promo-greet">Produkty wybrane dla Ciebie</div>
+          <div class="promo-items">
+            ${offer.items.map((it) => `
+            <div class="promo-item" data-promo="${it.product_id}">
+              <div class="promo-img"><img src="${it.image}" alt="${esc(it.name)}"/>
+                <span class="promo-badge">−${it.discount}%</span>
+              </div>
+              <div class="promo-info">
+                <div class="promo-name">${esc(it.name.split(" – ")[0])}</div>
+                <div class="promo-prices">
+                  <span class="promo-old">${fmt.format(it.price)}</span>
+                  <span class="promo-new">${fmt.format(it.new_price)}</span>
+                </div>
               </div>
             </div>
-          </div>`).join("")}
-      </div>
-      <div class="promo-foot">Promocja ważna tylko dla Twojego konta</div>`;
+            `).join("")}
+          </div>
+          <div class="promo-foot">Promocja ważna tylko dla Twojego konta</div>
+        </div>
+      </div>`;
     el.hidden = false;
     requestAnimationFrame(() => el.classList.add("show"));
 
-    $("#promo-close").addEventListener("click", () => { promoDismissed = true; hidePromoAd(); });
+    $("#promo-close").addEventListener("click", () => { promoDismissedForId = customerId; hidePromoAd(); });
     el.querySelectorAll("[data-promo]").forEach((it) =>
       it.addEventListener("click", () => openModal(it.dataset.promo)));
   }
@@ -924,7 +958,7 @@
   // POMOCNICZE
   // =====================================================================
   async function fetchJSON(url, opts) {
-    const r = await fetch(url, opts);
+    const r = await fetch(url, { cache: "no-store", ...(opts || {}) });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.json();
   }

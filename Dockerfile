@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Kod aplikacji i frontend
 COPY app ./app
 COPY static ./static
+COPY zapraszam.png ./static/images/zaproszenie.png
 COPY entrypoint.sh .
 
 # Katalog na bazę SQLite (montowany jako wolumen na VPS)

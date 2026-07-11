@@ -68,6 +68,7 @@ class OrderItemIn(BaseModel):
 
 class OrderIn(BaseModel):
     items: list[OrderItemIn]
+    customer_id: Optional[int] = None
 
 
 # --------------------------------------------------------------------------
@@ -225,7 +226,19 @@ def create_order(payload: OrderIn, db: Session = Depends(get_db)):
     if not payload.items:
         raise HTTPException(400, "Koszyk jest pusty")
 
-    order = Order(store_id=store.id, status="symulacja")
+    customer = None
+    if payload.customer_id is not None:
+        customer = db.query(Customer).filter_by(
+            id=payload.customer_id, store_id=store.id
+        ).first()
+        if not customer:
+            raise HTTPException(404, "Nie znaleziono wybranego klienta")
+
+    order = Order(
+        store_id=store.id,
+        customer_id=customer.id if customer else None,
+        status="zrealizowane" if customer else "symulacja",
+    )
     db.add(order)
     db.flush()
 
@@ -243,6 +256,9 @@ def create_order(payload: OrderIn, db: Session = Depends(get_db)):
 
     order.total = round(total, 2)
     order.items_count = count
+    if customer:
+        customer.orders_count = (customer.orders_count or 0) + 1
+        customer.total_spent = round((customer.total_spent or 0) + order.total, 2)
     db.commit()
     return {
         "order_id": order.id, "status": order.status,
