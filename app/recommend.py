@@ -701,43 +701,121 @@ def get_recommendations(customer_id: int, db: Session,
 def get_offer(customer_id: int, db: Session, n: int = 3) -> dict:
     """Spersonalizowana oferta: top N produktów z indywidualną promocją 5-15%.
 
-    Promocja deterministyczna (ten sam klient+produkt => ten sam rabat).
-    Źródło produktów (w kolejności):
-      1. rekomendacje LightGBM (customer_recommendations) — jeśli policzone,
-      2. fallback: najlepiej oceniane produkty z ulubionego działu klienta,
-      3. fallback: globalnie najpopularniejsze produkty.
-    Dzięki temu reklama pokazuje się zawsze, a po przeliczeniu recommend
-    automatycznie korzysta z modelu.
+    Oferta reklamowa musi być czytelna biznesowo, więc nie pokazujemy tu
+    ślepo rankingu modelu. Najpierw dobieramy produkty zgodne z segmentem
+    klienta, a rekomendacje LightGBM traktujemy jako dodatkowy boost.
     """
     from app.models import Product, Customer, Department
 
-    picks = []  # lista (product_id, name, price)
+    def norm(value) -> str:
+        return (value or "").casefold()
 
-    # 1) rekomendacje z modelu
+    def product_text(product) -> str:
+        return " ".join(norm(getattr(product, field, "")) for field in (
+            "name", "brand", "category", "variant", "description", "tags"
+        ))
+
+    segment_rules = {
+        "biegacz": {
+            "allow": ["biegan", "trail", "running", "pegasus", "gel-nimbus", "clifton", "speedgoat", "ghost", "endorphin", "wave rider", "fresh foam", "trabuco", "spodenki", "stride", "launch", "accelerate", "zegarek", "forerunner", "pacer", "pace 3", "bidon", "opaska"],
+            "prefer_departments": ["obuwie", "akcesoria"],
+        },
+        "fitness & joga": {
+            "allow": ["joga", "yoga", "mata", "maty", "guma", "taśma", "band", "legginsy", "tights", "fitness", "studio", "skakanka", "piłka gimnastyczna", "roller", "mobilność", "trx", "trener zawieszany"],
+            "prefer_departments": ["silownia", "odziez"],
+        },
+        "siłownia": {
+            "allow": ["siłown", "hant", "kettlebell", "sztang", "talerz", "ławka", "gryf", "białko", "whey", "kreatyna", "preworkout", "shaker", "rękawiczki", "treningowe", "metcon", "tribase", "nano"],
+            "prefer_departments": ["silownia", "akcesoria", "obuwie"],
+        },
+        "koszykarz": {
+            "allow": ["koszyk", "basket", "nba", "curry", "lebron", "harden", "hala", "outdoor"],
+            "prefer_departments": ["obuwie", "akcesoria"],
+        },
+        "piłkarz": {
+            "allow": ["piłka nożna", "piłkars", "korki", "predator", "mercurial", "future", "morelia", "fg", "football"],
+            "prefer_departments": ["obuwie", "akcesoria"],
+        },
+        "streetwear": {
+            "allow": ["sneakers", "lifestyle", "samba", "574", "suede", "hoodie", "bluza", "classic", "na co dzień"],
+            "prefer_departments": ["obuwie", "odziez"],
+        },
+    }
+
+    football_terms = ["piłka nożna", "piłkars", "korki", "football", " fg", "predator", "mercurial", "future 7", "morelia"]
+
+    cust = db.query(Customer).filter_by(id=customer_id).first()
+    segment = norm(getattr(cust, "segment", ""))
+    rule_key = next((key for key in segment_rules if key in segment), None)
+    rule = segment_rules.get(rule_key, {})
+    allow_terms = rule.get("allow", [])
+    prefer_departments = set(rule.get("prefer_departments", []))
+    fav_department = norm(getattr(cust, "favorite_department", "")) if cust else ""
+    fav_brands = {
+        brand.strip().casefold()
+        for brand in (getattr(cust, "favorite_brands", "") or "").split(",")
+        if brand.strip()
+    }
+
+    departments = {d.id: norm(d.slug) for d in db.query(Department).all()}
+    products = db.query(Product).all()
+
+    rec_boost = {}
     recs = db.query(CustomerRecommendation)\
         .filter_by(customer_id=customer_id)\
         .order_by(CustomerRecommendation.rank)\
-        .limit(n).all()
+        .limit(30).all()
     for r in recs:
-        picks.append((r.product_id, r.product_name, r.product_price, r.probability))
+        rec_boost[r.product_id] = max(0.0, 35.0 - float(getattr(r, "rank", 99) or 99) * 2.0)
 
-    # 2/3) fallback gdy brak rekomendacji
-    if not picks:
-        cust = db.query(Customer).filter_by(id=customer_id).first()
+    scored = []
+    for p in products:
+        text_blob = product_text(p)
+        dep_slug = departments.get(p.department_id, "")
+
+        if rule_key != "piłkarz" and any(term in text_blob for term in football_terms):
+            continue
+
+        matches = sum(1 for term in allow_terms if term in text_blob)
+        if allow_terms and matches == 0:
+            continue
+
+        score = 100.0 * matches
+        score += rec_boost.get(p.id, 0.0)
+        if rule_key == "biegacz" and dep_slug == "obuwie":
+            score += 120.0
+        if rule_key == "biegacz" and ("buty do biegania" in text_blob or "buty trailowe" in text_blob):
+            score += 80.0
+        if rule_key == "fitness & joga" and ("mata" in text_blob or "maty" in text_blob):
+            score += 180.0
+        if rule_key == "koszykarz" and dep_slug == "obuwie":
+            score += 80.0
+        if dep_slug in prefer_departments:
+            score += 30.0
+        if fav_department and dep_slug == fav_department:
+            score += 18.0
+        if norm(p.brand) in fav_brands:
+            score += 14.0
+        score += float(p.rating or 0) * 2.0
+        score += min(float(p.reviews or 0), 800.0) / 80.0
+        scored.append((score, p))
+
+    if not scored:
         q = db.query(Product)
-        # spróbuj ulubiony dział klienta
-        fav = getattr(cust, "favorite_department", None) if cust else None
-        if fav:
-            dep = db.query(Department).filter_by(slug=fav).first()
+        if fav_department:
+            dep = db.query(Department).filter_by(slug=fav_department).first()
             if dep:
                 q = q.filter(Product.department_id == dep.id)
-        prods = q.order_by(Product.reviews.desc(), Product.rating.desc()).limit(n).all()
-        if len(prods) < n:  # gdyby dział miał za mało — dobierz globalnie
-            prods = db.query(Product)\
-                .order_by(Product.reviews.desc(), Product.rating.desc())\
-                .limit(n).all()
-        for p in prods:
-            picks.append((p.id, p.name, p.price, None))
+        scored = [(float(p.rating or 0) * 2.0 + min(float(p.reviews or 0), 800.0) / 80.0, p)
+                  for p in q.order_by(Product.reviews.desc(), Product.rating.desc()).limit(n * 3).all()
+                  if rule_key == "piłkarz" or not any(term in product_text(p) for term in football_terms)]
+
+    scored.sort(key=lambda item: (-item[0], item[1].price, item[1].id))
+    picks = [(p.id, p.name, p.price, None) for _, p in scored[:n]]
+
+    if not picks:
+        prods = db.query(Product).order_by(Product.reviews.desc(), Product.rating.desc()).limit(n).all()
+        picks = [(p.id, p.name, p.price, None) for p in prods]
 
     items = []
     for pid, name, price, prob in picks[:n]:

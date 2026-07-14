@@ -213,7 +213,7 @@
         ? `<span class="pairs-cluster-tag">klaster ${esc(pairsData.cluster)}${pairsData.fallback ? " (ogólny)" : ""}</span>`
         : "";
       const heading = state.identity
-        ? `Często kupowane razem — w segmencie klienta ${clusterTag}`
+        ? `Kupowane razem w klastrze klienta <span class="pairs-customer-name">${esc(state.identity.full_name)}</span> ${clusterTag}`
         : `Często kupowane razem ${clusterTag}`;
       pairsHTML = `
       <div class="m-pairs" style="grid-column:1/-1">
@@ -613,38 +613,60 @@
     }
   }
 
+  const AD_IMG = "/images/activities/labelled";
   const PERSONAL_ADS = [
-    { icon:"🏋️", title:"Karnet do siłowni", text:"Miesiąc treningów i konsultacja trenerska", colors:["#101820","#E8590C"] },
-    { icon:"🏊", title:"Karnet na pływalnię", text:"Swobodne wejścia i trening techniki pływania", colors:["#073B4C","#118AB2"] },
-    { icon:"🚴", title:"Serwis i sklep rowerowy", text:"Przegląd roweru oraz akcesoria na nowy sezon", colors:["#183A1D","#0CA678"] },
-    { icon:"🏕️", title:"Weekend survivalowy", text:"Przygoda w terenie z instruktorem i ekwipunkiem", colors:["#302B1F","#8A6D3B"] },
-    { icon:"🧗", title:"Ścianka wspinaczkowa", text:"Wejście, sprzęt i pierwsza lekcja wspinania", colors:["#352F44","#7048E8"] },
-    { icon:"🧘", title:"Studio jogi", text:"Pakiet zajęć poprawiających mobilność i regenerację", colors:["#40354A","#B36BCE"] },
-    { icon:"🥊", title:"Klub sportów walki", text:"Trening wprowadzający z opieką instruktora", colors:["#241313","#D9485F"] },
-    { icon:"🎾", title:"Korty tenisowe", text:"Rezerwacja kortu i trening z trenerem", colors:["#204020","#74B816"] },
-    { icon:"⛷️", title:"Aktywny wyjazd w góry", text:"Sportowy weekend z trasami i opieką przewodnika", colors:["#19324A","#4DABF7"] },
-    { icon:"🏃", title:"Klub biegowy", text:"Plan treningowy i wspólne treningi biegowe", colors:["#312019","#FF6B35"] },
-    { icon:"🚣", title:"Spływ kajakowy", text:"Całodniowa wyprawa z transportem i sprzętem", colors:["#123047","#168AAD"] },
-    { icon:"🤸", title:"Trening personalny", text:"Indywidualny plan dopasowany do Twojego celu", colors:["#20232A","#FF4D2E"] },
-    { icon:"🛼", title:"Park rolkowy", text:"Zajęcia techniczne i bezpieczna jazda z instruktorem", colors:["#392A48","#9C36B5"] },
-    { icon:"🏇", title:"Jazda konna", text:"Lekcja w siodle i spokojna wyprawa terenowa", colors:["#3D2C1E","#B7791F"] },
-    { icon:"🏄", title:"Szkoła sportów wodnych", text:"Windsurfing lub SUP z pełnym wyposażeniem", colors:["#073642","#00A8CC"] },
-    { icon:"⚽", title:"Akademia piłkarska", text:"Trening techniczny i analiza umiejętności", colors:["#173B2A","#20A464"] },
-    { icon:"🏸", title:"Klub badmintona", text:"Kort, rakiety i trening dla każdego poziomu", colors:["#253246","#5470C6"] },
-    { icon:"⛸️", title:"Lodowisko i nauka jazdy", text:"Wejście z wypożyczeniem łyżew i instruktorem", colors:["#17324D","#69DBE7"] },
-    { icon:"🌲", title:"Park linowy", text:"Trasa pełna przeszkód i aktywności na wysokości", colors:["#203621","#5C940D"] },
-    { icon:"💆", title:"Regeneracja sportowa", text:"Masaż sportowy i sesja odnowy po treningu", colors:["#263238","#26A69A"] },
+    { icon:"🏋️", image:`${AD_IMG}/silownia.png?v=20260711-labelled`, title:"Karnet do siłowni", text:"Miesiąc treningów i konsultacja trenerska", colors:["#101820","#E8590C"] },
+    { icon:"🏊", image:`${AD_IMG}/plywanie.png?v=20260711-labelled`, title:"Karnet na pływalnię", text:"Swobodne wejścia i trening techniki pływania", colors:["#073B4C","#118AB2"] },
+    { icon:"🚴", image:`${AD_IMG}/serwis_rowerowy.png?v=20260711-labelled`, title:"Serwis i sklep rowerowy", text:"Przegląd roweru oraz akcesoria na nowy sezon", colors:["#183A1D","#0CA678"] },
+    { icon:"🏕️", image:`${AD_IMG}/survival.png?v=20260711-labelled`, title:"Weekend survivalowy", text:"Przygoda w terenie z instruktorem i ekwipunkiem", colors:["#302B1F","#8A6D3B"] },
+    { icon:"🧗", image:`${AD_IMG}/wspinaczka.png?v=20260711-labelled`, title:"Ścianka wspinaczkowa", text:"Wejście, sprzęt i pierwsza lekcja wspinania", colors:["#352F44","#7048E8"] },
+    { icon:"🧘", image:`${AD_IMG}/joga.png?v=20260711-labelled`, title:"Studio jogi", text:"Pakiet zajęć poprawiających mobilność i regenerację", colors:["#40354A","#B36BCE"] },
+    { icon:"🥊", image:`${AD_IMG}/sztuki_walki.png?v=20260711-labelled`, title:"Klub sportów walki", text:"Trening wprowadzający z opieką instruktora", colors:["#241313","#D9485F"] },
+    { icon:"🎾", image:`${AD_IMG}/tenis.png?v=20260711-labelled`, title:"Korty tenisowe", text:"Rezerwacja kortu i trening z trenerem", colors:["#204020","#74B816"] },
+    { icon:"⛰️", image:`${AD_IMG}/wyprawa_w_gory.png?v=20260711-labelled`, title:"Aktywny wyjazd w góry", text:"Sportowy weekend z trasami i opieką przewodnika", colors:["#19324A","#4DABF7"] },
+    { icon:"🏃", image:`${AD_IMG}/bieganie.png?v=20260711-labelled`, title:"Klub biegowy", text:"Plan treningowy i wspólne treningi biegowe", colors:["#312019","#FF6B35"] },
+    { icon:"🚣", image:`${AD_IMG}/kajaki.png?v=20260711-labelled`, title:"Spływ kajakowy", text:"Całodniowa wyprawa z transportem i sprzętem", colors:["#123047","#168AAD"] },
+    { icon:"🤸", image:`${AD_IMG}/trening_personalny.png?v=20260711-labelled`, title:"Trening personalny", text:"Indywidualny plan dopasowany do Twojego celu", colors:["#20232A","#FF4D2E"] },
+    { icon:"🤸", image:`${AD_IMG}/gimnastyka.png?v=20260711-labelled`, title:"Gimnastyka i mobilność", text:"Zajęcia techniczne, koordynacja i sprawność", colors:["#392A48","#9C36B5"] },
+    { icon:"🏇", image:`${AD_IMG}/jazda_konna.png?v=20260711-labelled`, title:"Jazda konna", text:"Lekcja w siodle i spokojna wyprawa terenowa", colors:["#3D2C1E","#B7791F"] },
+    { icon:"🚴", image:`${AD_IMG}/jazda_na_rowerze.png?v=20260711-labelled`, title:"Jazda na rowerze", text:"Trasa, technika jazdy i aktywny trening w terenie", colors:["#073642","#00A8CC"] },
+    { icon:"⚽", image:`${AD_IMG}/pilka_nozna.png?v=20260711-labelled`, title:"Akademia piłkarska", text:"Trening techniczny i analiza umiejętności", colors:["#173B2A","#20A464"] },
+    { icon:"🏸", image:`${AD_IMG}/badminton.png?v=20260711-labelled`, title:"Klub badmintona", text:"Kort, rakiety i trening dla każdego poziomu", colors:["#253246","#5470C6"] },
+    { icon:"⛸️", image:`${AD_IMG}/lodowisko.png?v=20260711-labelled`, title:"Lodowisko i nauka jazdy", text:"Wejście z wypożyczeniem łyżew i instruktorem", colors:["#17324D","#69DBE7"] },
+    { icon:"🌲", image:`${AD_IMG}/park_linowy.png?v=20260711-labelled`, title:"Park linowy", text:"Trasa pełna przeszkód i aktywności na wysokości", colors:["#203621","#5C940D"] },
+    { icon:"💆", image:`${AD_IMG}/trening_personalny.png?v=20260711-labelled`, title:"Regeneracja sportowa", text:"Masaż sportowy i sesja odnowy po treningu", colors:["#263238","#26A69A"] },
   ];
+
+  function selectActivityAd(identity, customerId) {
+    const segment = String(identity?.segment || "").toLowerCase();
+    const city = String(identity?.city || "").toLowerCase();
+    const text = `${segment} ${city}`;
+    const bySegment = [
+      { test: /biegacz|biegan|runner/, index: 9 },
+      { test: /fitness|joga|yoga/, index: 5 },
+      { test: /koszykarz|koszyk|basket/, index: 11, override: { icon:"🏀", image:`${AD_IMG}/trening_personalny.png?v=20260711-labelled`, title:"Trening koszykarski", text:"Rzut, kozioł i dynamika na boisku" } },
+      { test: /siłownia|silownia|gym/, index: 0 },
+      { test: /piłkarz|pilkarz|piłka nożna|pilka nozna|football/, index: 15 },
+      { test: /tenis|tennis/, index: 7 },
+      { test: /rower|cycling|bike/, index: 2 },
+      { test: /streetwear|lifestyle/, index: 11, override: { icon:"🤸", title:"Trening personalny", text:"Plan aktywności dopasowany do Twojego stylu" } },
+    ];
+    const match = bySegment.find((rule) => rule.test.test(text));
+    const base = PERSONAL_ADS[match ? match.index : customerId % PERSONAL_ADS.length];
+    return match?.override ? { ...base, ...match.override } : base;
+  }
 
   function renderPromoAd(offer, customerId) {
     const el = $("#promo-ad");
-    const ad = PERSONAL_ADS[customerId % PERSONAL_ADS.length];
+    const ad = selectActivityAd(state.identity, customerId);
     const firstName = offer.first_name || "Mamy dla Ciebie ofertę";
     el.innerHTML = `
-      <button class="promo-close" id="promo-close" aria-label="Zamknij">✕</button>
       <div class="promo-layout">
         <div class="promo-activity" style="--ad-from:${ad.colors[0]};--ad-to:${ad.colors[1]}">
-          <span class="promo-ad-icon" aria-hidden="true">${ad.icon}</span>
+          <button class="promo-close" id="promo-close" aria-label="Zamknij reklamę aktywności">✕</button>
+          <div class="promo-activity-image">
+            <img src="${ad.image}" alt="${esc(ad.title)}" />
+          </div>
           <div class="promo-hero-txt">
             <span class="promo-eyebrow">Oferta indywidualna</span>
             <span class="promo-slogan">${esc(firstName)}, mamy dla Ciebie −10%</span>
@@ -653,7 +675,7 @@
           </div>
         </div>
         <div class="promo-products-box">
-          <div class="promo-greet">Produkty wybrane dla Ciebie</div>
+          <div class="promo-greet">${esc(firstName)}, masz indywidualną zniżkę na te produkty</div>
           <div class="promo-items">
             ${offer.items.map((it) => `
             <div class="promo-item" data-promo="${it.product_id}">
