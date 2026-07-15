@@ -109,6 +109,14 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         run: |
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
+            echo "::error::Brak sekretu SSH_PRIVATE_KEY w ustawieniach repozytorium GitHub."
+            exit 1
+          fi
+          if [ -z "$SSH_KNOWN_HOSTS" ]; then
+            echo "::error::Brak sekretu SSH_KNOWN_HOSTS w ustawieniach repozytorium GitHub."
+            exit 1
+          fi
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
@@ -117,10 +125,10 @@ jobs:
 
       - name: Synchronize application files
         env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_HOST: ${{ secrets.SSH_HOST || '62.72.20.95' }}
           SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          SSH_USER: ${{ secrets.SSH_USER || 'root' }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/srv/mlops/apps/p03-e-commerc' }}
         run: |
           ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p '$DEPLOY_PATH'"
           rsync --archive --compress --delete \
@@ -133,20 +141,20 @@ jobs:
 
       - name: Rebuild and restart application
         env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_HOST: ${{ secrets.SSH_HOST || '62.72.20.95' }}
           SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          SSH_USER: ${{ secrets.SSH_USER || 'root' }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/srv/mlops/apps/p03-e-commerc' }}
         run: |
           ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
             "cd '$DEPLOY_PATH' && docker compose up -d --build --remove-orphans && docker compose ps"
 
       - name: Verify production API on port 8501
         env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_HOST: ${{ secrets.SSH_HOST || '62.72.20.95' }}
           SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          SSH_USER: ${{ secrets.SSH_USER || 'root' }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/srv/mlops/apps/p03-e-commerc' }}
         run: |
           ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
             "for attempt in \$(seq 1 30); do curl --fail --silent http://127.0.0.1:8501/api/health && exit 0; sleep 2; done; cd '$DEPLOY_PATH' && docker compose logs --tail=100; exit 1"
